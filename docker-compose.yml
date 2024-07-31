@@ -19,8 +19,8 @@ services:
       - "8040:8040"
     depends_on:
       - db
-    # env_file:
-    #   - stack.env
+    env_file:
+      - stack.env
 #     secrets:
 #       - smb_credentials
 # secrets:
