@@ -1,0 +1,28 @@
+services:
+  db:
+    image: postgres
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+  web:
+    build: .
+    command: python ./backend/manage.py runserver 0.0.0.0:8040
+    volumes:
+      - .:/code
+    ports:
+      - "8040:8040"
+    environment:
+      - POSTGRES_NAME=postgres
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      # - SMB_CREDENTIALS=/run/secrets/smb_credentials
+    depends_on:
+      - db
+#     secrets:
+#       - smb_credentials
+# secrets:
+#   smb_credentials:
+#     file: ./credentials.json
