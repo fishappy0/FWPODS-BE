@@ -25,7 +25,7 @@ SECRET_KEY = "django-insecure-59uct(g^cvw-%6obmr(wz73zu81qoksbg+hybt7o*j89=$!na2
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = False
 
-ALLOWED_HOSTS = ["musicbe.fishand.me", "localhost", "192.168.1.*", "127.0.0.1"]
+ALLOWED_HOSTS = ["musicbe.fishand.me", "localhost", "192.168.1.69", "127.0.0.1"]
 
 ASGI_APPLICATION = "backend.asgi.application"
 
