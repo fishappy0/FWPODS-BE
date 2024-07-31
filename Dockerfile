@@ -2,10 +2,6 @@ FROM python:3.9.19
 WORKDIR /usr/src/app
 
 COPY . .
-
-RUN echo $CERTIFICATE > /usr/local/share/ca-certificates/pub.pem
-RUN echo $PRIVATE_KEY > /usr/local/share/ca-certificates/priv.pem
-
 RUN pip install --upgrade pip
 RUN pip install -r ./backend/requirements.txt
 RUN python ./backend/manage.py migrate --no-input
