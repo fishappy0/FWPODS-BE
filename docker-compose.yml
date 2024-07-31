@@ -13,7 +13,7 @@ services:
     #   sh -c "
     #     cd ./backend &&
     #     daphne --root-path=./backend -e ssl:8040:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem backend.asgi:application"
-    command: daphne --root-path=./backend -e ssl:8040:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem backend.asgi:application"
+    command: daphne --root-path=./backend -e ssl:8040:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem backend.asgi:application
     volumes:
       - .:/code
     ports:
