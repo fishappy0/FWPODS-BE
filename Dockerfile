@@ -16,5 +16,5 @@ RUN python ./backend/manage.py collectstatic --no-input
 
 EXPOSE 8040
 
-ENV PATH="/usr/local/bin"
+ENV PATH="/usr/local/bin/daphne"
 CMD ["daphne", "-e", "ssl:443:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem", "backend.asgi:application"]
