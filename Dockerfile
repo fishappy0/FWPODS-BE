@@ -10,6 +10,7 @@ RUN echo $PRIVATE_KEY > /usr/local/share/ca-certificates/priv.pem
 
 RUN pip install --upgrade pip
 RUN pip install -r ./backend/requirements.txt
+RUN python -m pip install daphne
 RUN python ./backend/manage.py migrate --no-input
 RUN python ./backend/manage.py collectstatic --no-input
 
