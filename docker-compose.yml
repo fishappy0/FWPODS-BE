@@ -13,9 +13,6 @@ services:
       dockerfile: Dockerfile
     command: >
       sh -c "
-        echo -e $CERTIFICATE > /usr/local/share/ca-certificates/pub.pem &&
-        echo -e $CERTIFICATE &&
-        echo -e $PRIVATE_KEY > /usr/local/share/ca-certificates/priv.pem &&
         cd ./backend &&
         daphne -e ssl:8040:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem backend.asgi:application"
     volumes:
