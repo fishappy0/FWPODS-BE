@@ -12,9 +12,9 @@ services:
       context: .
       dockerfile: Dockerfile.daphne
     command: >
-      sh -c "
+      'sh -c "
         cd ./backend &&
-        daphne -e ssl:8040:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem backend.asgi:application"
+        daphne -e ssl:8040:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem backend.asgi:application"'
     volumes:
       - .:/code
     ports:
