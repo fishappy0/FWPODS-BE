@@ -2,6 +2,9 @@ FROM python:3.9.19
 WORKDIR /usr/src/app
 
 COPY . .
+
+COPY ./certs /usr/local/share/ca-certificates
+
 RUN pip install --upgrade pip
 RUN pip install -r ./backend/requirements.txt
 RUN python ./backend/manage.py migrate --no-input
