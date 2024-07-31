@@ -25,4 +25,5 @@ urlpatterns = [
     path("", fwpods_be.views.index),
     path("test_image", fwpods_be.views.test_image),
     path("test_song", fwpods_be.views.test_song),
+    path("test_playlist", fwpods_be.views.test_playlist),
 ]

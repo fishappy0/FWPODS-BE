@@ -13,6 +13,22 @@ def index(request):
     )
 
 
+def test_playlist(req):
+    if "playlist_id" in req.GET:
+        return JsonResponse(
+            {
+                "requested_playlist_id": req.GET["playlist_id"],
+                "songs": ["123456", "7891011"],
+            }
+        )
+    else:
+        return JsonResponse(
+            {
+                "error": "No playlist_id provided, please add the playlist_id to the request url."
+            }
+        )
+
+
 def test_image(req):
     username = environ["smb_username"]
     password = environ["smb_password"]

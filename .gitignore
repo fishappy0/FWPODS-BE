@@ -1,1 +1,4 @@
 credentials.json
+certs
+backend/backend/__pycache__
+backend/fwpods_be/__pycache__
