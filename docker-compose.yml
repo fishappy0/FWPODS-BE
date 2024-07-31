@@ -14,13 +14,10 @@ services:
       - .:/code
     ports:
       - "8040:8040"
-    environment:
-      - POSTGRES_NAME=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
-      # - SMB_CREDENTIALS=/run/secrets/smb_credentials
     depends_on:
       - db
+    env_file:
+      - stack.env
 #     secrets:
 #       - smb_credentials
 # secrets:
