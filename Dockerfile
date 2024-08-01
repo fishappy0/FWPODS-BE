@@ -5,10 +5,9 @@ COPY . .
 
 COPY ./certs /usr/local/share/ca-certificates
 
-RUN pip install --upgrade pip
+RUN apt-get update && apt-get install libgl1 -y
+RUN pip install --upgrade pip setuptools wheel
 RUN pip install -r ./backend/requirements.txt
-RUN python ./backend/manage.py migrate --no-input
-RUN python ./backend/manage.py collectstatic --no-input
 
 EXPOSE 8040
 
