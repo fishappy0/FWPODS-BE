@@ -3,10 +3,14 @@ services:
     image: postgres
     volumes:
       - ./data/db:/var/lib/postgresql/data
-    environment:
-      - POSTGRES_DB=postgres
-      - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+    expose:
+      - "5432"
+    ports:
+      - "5432:5432"
+    command: -p 5432
+    env_file: 
+      - stack.env
+
   web:
     build: 
       context: .
@@ -14,17 +18,12 @@ services:
     command: >
       sh -c "
         cd ./backend &&
-        daphne -e ssl:8040:privateKey=/usr/local/share/ca-certificates/priv.pem:certKey=/usr/local/share/ca-certificates/pub.pem backend.asgi:application"
+        daphne -e ssl:8040:privateKey=$$SSL_DIR/priv.pem:certKey=$$SSL_DIR/pub.pem backend.asgi:application"
     volumes:
       - .:/code
     ports:
       - "8040:8040"
     depends_on:
       - db
-    env_file:
+    env_file: 
       - stack.env
-#     secrets:
-#       - smb_credentials
-# secrets:
-#   smb_credentials:
-#     file: ./credentials.json
