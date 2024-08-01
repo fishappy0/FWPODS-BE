@@ -1,10 +1,13 @@
+from re import S
 from django.shortcuts import render
 from django.http import HttpResponse
 from django.http import JsonResponse
 from smb.SMBConnection import SMBConnection
 from io import BytesIO
 from os import environ
-import json
+import cv2
+import json, jwt, datetime
+import numpy as np
 
 
 def index(request):
@@ -30,22 +33,52 @@ def test_playlist(req):
 
 
 def test_image(req):
-    username = environ["smb_username"]
-    password = environ["smb_password"]
-    client_machine_name = environ["smb_client_machine_name"]
-    remote_name = environ["smb_remote_name"]
-    share_device = environ["smb_share_device"]
 
-    ip = environ["smb_ip"]
+    if "album_id" not in req.GET:
+        return JsonResponse(
+            {
+                "error": "No album_id provided, please add the album_id to the request url."
+            }
+        )
+
     conn = SMBConnection(
-        username, password, client_machine_name, remote_name, use_ntlm_v2=True
+        environ["smb_username"],
+        environ["smb_password"],
+        environ["smb_client_machine_name"],
+        environ["smb_remote_name"],
+        use_ntlm_v2=True,
     )
-    conn.connect(ip, 139)
+    conn.connect(environ["smb_ip"], 139)
 
-    file_obj = BytesIO()
-    conn.retrieveFile(share_device, "/Cover.jpg", file_obj)
-    image = file_obj.getvalue()
-    return HttpResponse(image, content_type="image/jpeg")
+    if req.GET["album_id"] == "123456":
+        file_obj = BytesIO()
+        conn.retrieveFile(environ["smb_share_device"], "/Cover1.jpg", file_obj)
+        if "size" in req.GET:
+            size = req.GET["size"]
+            image = cv2.imdecode(np.frombuffer(file_obj.getvalue(), np.uint8), -1)
+            image = cv2.resize(image, (int(size), int(size)))
+            image = cv2.imencode(".jpg", image)[1].tobytes()
+            return HttpResponse(image, content_type="image/jpeg")
+
+        image = file_obj.getvalue()
+        return HttpResponse(image, content_type="image/jpeg")
+
+    if req.GET["album_id"] == "7891011":
+        file_obj = BytesIO()
+        conn.retrieveFile(environ["smb_share_device"], "/Cover2.jpg", file_obj)
+        if "size" in req.GET:
+            size = req.GET["size"]
+            image = cv2.imdecode(np.frombuffer(file_obj.getvalue(), np.uint8), 1)
+            image = cv2.resize(image, (int(size), int(size)))
+            image = cv2.imencode(".jpg", image)[1].tobytes()
+            return HttpResponse(image, content_type="image/jpeg")
+
+        image = file_obj.getvalue()
+        return HttpResponse(image, content_type="image/jpeg")
+
+    return JsonResponse(
+        {"error": "Invalid album_id provided, please provide a valid album_id."}
+    )
 
 
 def test_song(req):
