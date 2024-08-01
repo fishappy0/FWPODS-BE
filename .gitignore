@@ -1,3 +1,5 @@
 credentials.json
 backend/backend/__pycache__
 backend/fwpods_be/__pycache__
+docker-compose-local.yml
+stack.env
