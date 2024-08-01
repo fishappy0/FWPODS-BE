@@ -19,4 +19,8 @@ def main():
 
 
 if __name__ == "__main__":
+    if "portainer_prod" not in os.environ:
+        from dotenv import load_dotenv
+
+        load_dotenv("../stack.env")
     main()
