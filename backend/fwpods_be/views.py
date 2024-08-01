@@ -5,6 +5,10 @@ from django.http import JsonResponse
 from smb.SMBConnection import SMBConnection
 from io import BytesIO
 from os import environ
+from .models import User
+from .serializers import UserSerializer
+from rest_framework.views import APIView
+
 import cv2
 import json, jwt, datetime
 import numpy as np
@@ -118,3 +122,29 @@ def test_song(req):
         return JsonResponse(
             {"error": "No song_id provided, please add the song_id to the request url."}
         )
+
+
+class RegisterView(APIView):
+    def post(self, req):
+        serializer = UserSerializer(data=req.data)
+        if serializer.is_valid():
+            serializer.save()
+            return JsonResponse(serializer.data, status=201)
+        return JsonResponse(serializer.errors, status=400)
+
+
+class LoginView(APIView):
+    def post(self, req):
+        username = req.data["username"]
+        password = req.data["password"]
+        user = User.objects.filter(username=username).first()
+        if user is None:
+            return JsonResponse({"error": "Invalid username or password"}, status=400)
+        if not user.check_password(password):
+            return JsonResponse({"error": "Invalid username or password"}, status=400)
+        payload = {
+            "user_id": user.user_id,
+            "exp": datetime.datetime.now() + datetime.timedelta(days=1),
+        }
+        token = jwt.encode(payload, "random salt here idk", algorithm="HS256")
+        return JsonResponse({"token": token}, status=200)

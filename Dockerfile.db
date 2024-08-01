@@ -1,0 +1,2 @@
+# Create a database named 'fwpods_be'
+FROM postgres
