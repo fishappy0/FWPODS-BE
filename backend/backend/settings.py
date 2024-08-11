@@ -31,7 +31,14 @@ SECRET_KEY = "django-insecure-59uct(g^cvw-%6obmr(wz73zu81qoksbg+hybt7o*j89=$!na2
 DEBUG = False
 
 ALLOWED_HOSTS = ["musicbe.fishand.me", "localhost", "192.168.1.69", "127.0.0.1"]
-
+REST_FRAMEWORK = {
+    "DEFAULT_PARSER_CLASSES": [
+        "rest_framework.parsers.JSONParser",
+        "rest_framework.parsers.FormParser",
+        "rest_framework.parsers.MultiPartParser",
+        "rest_framework.parsers.FileUploadParser",
+    ],
+}
 ASGI_APPLICATION = "backend.asgi.application"
 
 # Application definition
@@ -57,6 +64,7 @@ MIDDLEWARE = [
     "django.contrib.auth.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "corsheaders.middleware.CorsMiddleware",
 ]
 
 ROOT_URLCONF = "backend.urls"
@@ -149,5 +157,6 @@ SECURE_SSL_REDIRECT = True
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+CORS_ALLOWED_HEADERS = ["Content-Type", "Authorization"]
 
 AUTH_USER_MODEL = "fwpods_be.User"
