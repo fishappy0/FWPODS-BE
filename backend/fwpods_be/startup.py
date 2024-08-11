@@ -7,7 +7,7 @@ import re
 
 
 def scan_songs(Song, Artist, Album, path_to_item):
-    if Song.objects.all().count() > 1000:
+    if Song.objects.all().count() > 350:
         return
     conn = SMBConnection(
         username=environ["smb_username"],
@@ -20,7 +20,7 @@ def scan_songs(Song, Artist, Album, path_to_item):
     artist_folders_smb_path = conn.listPath("win-games-and-misc", f"/{root_path}/")
     artist_folder = [f.filename for f in artist_folders_smb_path][2:]
     for artist in artist_folder:
-        if Song.objects.all().count() > 1000:
+        if Song.objects.all().count() > 350:
             return
         album_folders_smb_path = conn.listPath(
             "win-games-and-misc", f"/{root_path}/{artist}"
