@@ -22,8 +22,8 @@ services:
       sh -c "
         cd ./backend &&
         python manage.py makemigrations &&
-        python manage.py collectstatic --noinput &&
         python manage.py migrate &&
+        python manage.py collectstatic --noinput &&
         daphne -e ssl:8040:privateKey=$$SSL_DIR/priv.pem:certKey=$$SSL_DIR/pub.pem backend.asgi:application"
     volumes:
       - .:/code
