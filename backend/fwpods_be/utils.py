@@ -26,7 +26,7 @@ class utils:
         return result
 
     def get_flac_duration(bytesio_obj):
-        if bytesio_obj.get_vlaue().hex().find("664c6143") == -1:
+        if bytesio_obj.getvalue().hex().find("664c6143") == -1:
             return "00:00:00"
         length_raw = FLAC(fileobj=BytesIO(bytesio_obj.getvalue())).info.length
         length = int(length_raw)
