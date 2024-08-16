@@ -1,8 +1,19 @@
 services:
+  valkey:
+    image: bitnami/valkey:latest
+    hostname: valkey
+    environment:
+      - ALLOW_EMPTY_PASSWORD=yes
+    expose:
+      - "6379"
+    ports:
+      - "6379:6379"
+    volumes:
+      - vkdata:/data
   db:
     build:
       context: .
-      dockerfile: Dockerfile.db
+      dockerfile: ./dockerfiles/Dockerfile.db
     hostname: db
     volumes:
       - ./data/db:/var/lib/postgresql/data
@@ -14,10 +25,10 @@ services:
     env_file: 
       - stack.env
 
-  web:
+  web: 
     build: 
       context: .
-      dockerfile: Dockerfile.web
+      dockerfile: ./dockerfiles/Dockerfile.web
     command: >
       sh -c "
         cd ./backend &&
@@ -29,10 +40,49 @@ services:
       - .:/code
     ports:
       - "8040:8040"
+    expose:
+      - "8040"
     depends_on:
       - db
+    env_file: 
+      - stack.env
+    
+  celery:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/Dockerfile.celery
+    command: >
+      sh -c "
+        cd ./backend &&
+        celery -A backend worker --pool=solo -l INFO"
+    volumes:
+      - .:/code
+    depends_on:
+      - db
+      - valkey
+    env_file: 
+      - stack.env
+
+  flower:
+    build:
+      context: .
+      dockerfile: ./dockerfiles/Dockerfile.celery
+    command: >
+      sh -c "
+        cd ./backend &&
+        celery -A backend --broker="$$CELERY_BROKER_URL" flower"
+    volumes:
+      - .:/code
+    ports:
+      - "5555:5555"
+    expose:
+      - "5555"
+    depends_on:
+      - db
+      - valkey
     env_file: 
       - stack.env
 
 volumes:
   pgdata:
+  vkdata:

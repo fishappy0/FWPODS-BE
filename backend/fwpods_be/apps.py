@@ -17,6 +17,7 @@ class FwpodsBeConfig(AppConfig):
             "makemigrations" in sys.argv
             or "migrate" in sys.argv
             or "makemigration" in sys.argv
+            or "celery" in sys.argv
         ):
             migration_running = True
 

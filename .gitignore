@@ -3,3 +3,5 @@ backend/backend/__pycache__
 backend/fwpods_be/__pycache__
 docker-compose-local.yml
 stack.env
+backend/swn_tree.pkl
+backend/weights_manager.pkl

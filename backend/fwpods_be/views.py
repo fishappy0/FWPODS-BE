@@ -6,12 +6,16 @@ from django.http import JsonResponse
 from smb.SMBConnection import SMBConnection
 from io import BytesIO
 from os import environ
-from .models import User
+from .models import Runtimes, User
 from .models import path_to_item
 from .models import Song
 from .models import Playlist
+from .models import PlaylistSongs
 from .models import TransactionWindow
+from .models import LikedSongs
+from .models import SongWeight
 from .serializers import UserSerializer
+from .shared_tasks import *
 from rest_framework.views import APIView
 from rest_framework.parsers import JSONParser
 from rest_framework.parsers import FormParser
@@ -139,7 +143,6 @@ class RegisterView(APIView):
     parser_classes = [JSONParser, FormParser]
 
     def post(self, req):
-        print("data:", req.data)
         serializer = UserSerializer(data=req.data)
         if serializer.is_valid():
             serializer.save()
@@ -168,11 +171,11 @@ class LoginView(APIView):
 
 class GetSongInfo(APIView):
     def post(self, req):
-        jwt = req.POST.get("Authorization")
-        if jwt is None:
+        token = req.data["Authorization"]
+        if token is None:
             return JsonResponse({"error": "No token provided"}, status=400)
         try:
-            payload = jwt.decode(jwt, "random salt here idk", algorithms=["HS256"])
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return JsonResponse({"error": "Token has expired"}, status=400)
         except jwt.InvalidTokenError:
@@ -181,7 +184,7 @@ class GetSongInfo(APIView):
         user = User.objects.filter(user_id=user_id).first()
         if user is None:
             return JsonResponse({"error": "User not found"}, status=400)
-        song_id = req.POST.get("song_id")
+        song_id = req.data["song_id"]
         if song_id is None:
             return JsonResponse({"error": "No song_id provided"}, status=400)
         song = Song.objects.filter(song_id=song_id).first()
@@ -202,11 +205,11 @@ class GetSongInfo(APIView):
 
 class GetSong(APIView):
     def post(self, req):
-        jwt = req.POST.get("Authorization")
-        if jwt is None:
+        token = req.data["Authorization"]
+        if token is None:
             return JsonResponse({"error": "No token provided"}, status=400)
         try:
-            payload = jwt.decode(jwt, "random salt here idk", algorithms=["HS256"])
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return JsonResponse({"error": "Token has expired"}, status=400)
         except jwt.InvalidTokenError:
@@ -215,7 +218,7 @@ class GetSong(APIView):
         user = User.objects.filter(user_id=user_id).first()
         if user is None:
             return JsonResponse({"error": "User not found"}, status=400)
-        song_id = req.POST.get("song_id")
+        song_id = req.data["song_id"]
         if song_id is None:
             return JsonResponse({"error": "No song_id provided"}, status=400)
         song_path = path_to_item.objects.filter(song_id=song_id).first()
@@ -236,9 +239,11 @@ class GetSong(APIView):
 
 
 class GetRandomSongs(APIView):
+    [JSONParser, FormParser]
+
     def post(self, req):
-        token = req.POST.get("Authorization")
-        if jwt is None:
+        token = req.data["Authorization"]
+        if token is None:
             return JsonResponse({"error": "No token provided"}, status=400)
         try:
             payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
@@ -250,7 +255,7 @@ class GetRandomSongs(APIView):
         user = User.objects.filter(user_id=user_id).first()
         if user is None:
             return JsonResponse({"error": "User not found"}, status=400)
-        num_of_songs = int(req.POST.get("Songs_number")) or 10
+        num_of_songs = int(req.data["Songs_number"]) or 10
         songs_ids = []
         count = Song.objects.aggregate(count=Count("song_id"))["count"]
         for _ in range(num_of_songs):
@@ -263,11 +268,11 @@ class GetRandomSongs(APIView):
 
 class GetAllUserPlaylists(APIView):
     def post(self, req):
-        jwt = req.POST.get("Authorization")
-        if jwt is None:
+        token = req.data["Authorization"]
+        if token is None:
             return JsonResponse({"error": "No token provided"}, status=400)
         try:
-            payload = jwt.decode(jwt, "random salt here idk", algorithms=["HS256"])
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return JsonResponse({"error": "Token has expired"}, status=400)
         except jwt.InvalidTokenError:
@@ -282,13 +287,13 @@ class GetAllUserPlaylists(APIView):
         )
 
 
-class CreatePlaylist(APIView):
+class GetSongInfo(APIView):
     def post(self, req):
-        jwt = req.POST.get("Authorization")
-        if jwt is None:
+        token = req.data["Authorization"]
+        if token is None:
             return JsonResponse({"error": "No token provided"}, status=400)
         try:
-            payload = jwt.decode(jwt, "random salt here idk", algorithms=["HS256"])
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return JsonResponse({"error": "Token has expired"}, status=400)
         except jwt.InvalidTokenError:
@@ -297,51 +302,32 @@ class CreatePlaylist(APIView):
         user = User.objects.filter(user_id=user_id).first()
         if user is None:
             return JsonResponse({"error": "User not found"}, status=400)
-        playlist_name = req.POST.get("playlist_name")
-        if playlist_name is None:
-            return JsonResponse({"error": "No playlist_name provided"}, status=400)
-        playlist = Playlist.objects.create(user=user, playlist_name=playlist_name)
-        return JsonResponse({"playlist_id": playlist.playlist_id}, status=201)
-
-
-class UpdatePlaylist(APIView):
-    def post(self, req):
-        jwt = req.POST.get("Authorization")
-        if jwt is None:
-            return JsonResponse({"error": "No token provided"}, status=400)
-        try:
-            payload = jwt.decode(jwt, "random salt here idk", algorithms=["HS256"])
-        except jwt.ExpiredSignatureError:
-            return JsonResponse({"error": "Token has expired"}, status=400)
-        except jwt.InvalidTokenError:
-            return JsonResponse({"error": "Invalid token"}, status=400)
-        user_id = payload["user_id"]
-        user = User.objects.filter(user_id=user_id).first()
-        if user is None:
-            return JsonResponse({"error": "User not found"}, status=400)
-        playlist_id = req.POST.get("playlist_id")
-        if playlist_id is None:
-            return JsonResponse({"error": "No playlist_id provided"}, status=400)
-        playlist = Playlist.objects.filter(playlist_id=playlist_id).first()
-        if playlist is None:
-            return JsonResponse({"error": "Playlist not found"}, status=400)
-        song_id = req.POST.get("song_id")
+        song_id = req.data["song_id"]
         if song_id is None:
             return JsonResponse({"error": "No song_id provided"}, status=400)
         song = Song.objects.filter(song_id=song_id).first()
         if song is None:
             return JsonResponse({"error": "Song not found"}, status=400)
-        playlist.songs.add(song)
-        return JsonResponse({"playlist_id": playlist.playlist_id}, status=201)
+        artist = song.artist
+        album = song.album
+        return JsonResponse(
+            {
+                "song_id": song.song_id,
+                "song_name": song.song_name,
+                "artist": artist.artist_name,
+                "album": album.album_name,
+            },
+            status=200,
+        )
 
 
-class DeletePlaylist(APIView):
+class GetPlaylistSongs(APIView):
     def post(self, req):
-        jwt = req.POST.get("Authorization")
-        if jwt is None:
+        token = req.data["Authorization"]
+        if token is None:
             return JsonResponse({"error": "No token provided"}, status=400)
         try:
-            payload = jwt.decode(jwt, "random salt here idk", algorithms=["HS256"])
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return JsonResponse({"error": "Token has expired"}, status=400)
         except jwt.InvalidTokenError:
@@ -350,7 +336,140 @@ class DeletePlaylist(APIView):
         user = User.objects.filter(user_id=user_id).first()
         if user is None:
             return JsonResponse({"error": "User not found"}, status=400)
-        playlist_id = req.POST.get("playlist_id")
+        playlist_id = req.data["playlist_id"]
+        if playlist_id is None:
+            return JsonResponse({"error": "No playlist_id provided"}, status=400)
+        playlist = Playlist.objects.filter(playlist_id=playlist_id).first()
+        if playlist is None:
+            return JsonResponse({"error": "Playlist not found"}, status=400)
+        songs = playlist.songs.all()
+        return JsonResponse({"songs": [song.song_id for song in songs]}, status=200)
+
+
+class GetUserPlaylists(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        playlists = Playlist.objects.filter(user_id=user)
+        return JsonResponse(
+            {"playlists": [playlist.playlist_id for playlist in playlists]}, status=200
+        )
+
+
+class CreatePlaylist(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        playlist_name = req.data["playlist_name"]
+        if playlist_name is None:
+            return JsonResponse({"error": "No playlist_name provided"}, status=400)
+        playlist = Playlist.objects.create(user_id=user, playlist_name=playlist_name)
+        return JsonResponse({"playlist_id": playlist.playlist_id}, status=201)
+
+
+class UpdatePlaylist(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        playlist_id = req.data["playlist_id"]
+        if playlist_id is None:
+            return JsonResponse({"error": "No playlist_id provided"}, status=400)
+        playlist = Playlist.objects.filter(playlist_id=playlist_id).first()
+        if playlist is None:
+            return JsonResponse({"error": "Playlist not found"}, status=400)
+        song_id = req.data["song_id"]
+        if song_id is None:
+            return JsonResponse({"error": "No song_id provided"}, status=400)
+        song = Song.objects.filter(song_id=song_id).first()
+        if song is None:
+            return JsonResponse({"error": "Song not found"}, status=400)
+        PlaylistSongs(playlist_id=playlist, song_id=song).save()
+        return JsonResponse({"playlist_id": playlist.playlist_id}, status=201)
+
+
+class UpdatePlaylistMultiple(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+
+        playlist_id = req.data["playlist_id"]
+        if playlist_id is None:
+            return JsonResponse({"error": "No playlist_id provided"}, status=400)
+        playlist = Playlist.objects.filter(playlist_id=playlist_id).first()
+        if playlist is None:
+            return JsonResponse({"error": "Playlist not found"}, status=400)
+
+        song_ids = req.data["song_ids"]
+        if song_ids is None:
+            return JsonResponse({"error": "No song_ids provided"}, status=400)
+        for song_id in song_ids:
+            song = Song.objects.filter(song_id=song_id).first()
+            if song is None:
+                return JsonResponse({"error": "Song not found"}, status=400)
+            PlaylistSongs(playlist_id=playlist, song_id=song).save()
+        return JsonResponse({"playlist_id": playlist.playlist_id}, status=201)
+
+
+class DeletePlaylist(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        playlist_id = req.data["playlist_id"]
         if playlist_id is None:
             return JsonResponse({"error": "No playlist_id provided"}, status=400)
         playlist = Playlist.objects.filter(playlist_id=playlist_id).first()
@@ -362,12 +481,14 @@ class DeletePlaylist(APIView):
 
 # Add playlist to the transaction window in the database
 class PlayPlaylist(APIView):
+    [JSONParser, FormParser]
+
     def post(self, req):
-        jwt = req.POST.get("Authorization")
-        if jwt is None:
+        token = req.data["Authorization"]
+        if token is None:
             return JsonResponse({"error": "No token provided"}, status=400)
         try:
-            payload = jwt.decode(jwt, "random salt here idk", algorithms=["HS256"])
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
         except jwt.ExpiredSignatureError:
             return JsonResponse({"error": "Token has expired"}, status=400)
         except jwt.InvalidTokenError:
@@ -376,12 +497,173 @@ class PlayPlaylist(APIView):
         user = User.objects.filter(user_id=user_id).first()
         if user is None:
             return JsonResponse({"error": "User not found"}, status=400)
-        playlist_id = req.POST.get("playlist_id")
+        playlist_id = req.data["playlist_id"]
         if playlist_id is None:
             return JsonResponse({"error": "No playlist_id provided"}, status=400)
         playlist = Playlist.objects.filter(playlist_id=playlist_id).first()
         if playlist is None:
             return JsonResponse({"error": "Playlist not found"}, status=400)
 
-        window = TransactionWindow.objects.create(playlist_id=playlist)
+        TransactionWindow(playlist_id=playlist).save()
         return JsonResponse({"playlist_id": playlist_id}, status=200)
+
+
+class GetAllAvailableSongs(APIView):
+    def get(self, req):
+        songs = Song.objects.all()
+        return JsonResponse({"songs": [song.song_id for song in songs]}, status=200)
+
+
+class LikeSong(APIView):
+    [JSONParser, FormParser]
+
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        song_id = req.data["song_id"]
+        if song_id is None:
+            return JsonResponse({"error": "No song_id provided"}, status=400)
+        song = Song.objects.filter(song_id=song_id).first()
+        if song is None:
+            return JsonResponse({"error": "Song not found"}, status=400)
+        LikedSongs(user_id=user, song_id=song).save()
+        return JsonResponse({"song_id": song_id}, status=201)
+
+
+class LikeSongMultiple(APIView):
+    [JSONParser, FormParser]
+
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+
+        song_ids = req.data["song_ids"]
+        times = req.data["times"] or 1
+        if song_ids is None:
+            return JsonResponse({"error": "No song_ids provided"}, status=400)
+        for _ in range(times):
+            for song_id in song_ids:
+                song = Song.objects.filter(song_id=song_id).first()
+                if song is None:
+                    return JsonResponse({"error": "Song not found"}, status=400)
+                LikedSongs(user_id=user, song_id=song).save()
+        return JsonResponse({"song_ids": song_ids}, status=201)
+
+
+class RemoveLikeSong(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        song_id = req.data["song_id"]
+        if song_id is None:
+            return JsonResponse({"error": "No song_id provided"}, status=400)
+        song = Song.objects.filter(song_id=song_id).first()
+        if song is None:
+            return JsonResponse({"error": "Song not found"}, status=400)
+        LikedSongs.objects.filter(user_id=user, song_id=song).delete()
+        return JsonResponse({"song_id": song_id}, status=200)
+
+
+class RunLikesUpdate(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+
+        # Clear the Song Weight table
+        SongWeight.objects.all().delete()
+
+        # Scan the LikedSongs table and update the SongWeight table
+        for like in LikedSongs.objects.filter(user_id=user):
+            song = like.song_id
+            try:
+                song_weight = SongWeight.objects.get(song_id=song)
+                song_weight.weight += 1
+                song_weight.save()
+            except SongWeight.DoesNotExist:
+                SongWeight(song_id=song, weight=1).save()
+        return JsonResponse({"user_id": user_id}, status=200)
+
+
+class ClearRuntimes(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+
+        Runtimes.objects.all().delete()
+        return JsonResponse({"message": "Runtimes cleared"}, status=200)
+
+
+class getRuntimesType(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        runtimes = Runtimes.objects.filter(user_id=user)
+        return JsonResponse(
+            {
+                "Time": [runtime.runtime for runtime in runtimes],
+                "Type": [runtime.runtime_name for runtime in runtimes],
+            },
+            status=200,
+        )

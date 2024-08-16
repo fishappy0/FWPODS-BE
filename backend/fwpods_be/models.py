@@ -1,6 +1,10 @@
+from re import L
 from typing import Any
 from django.db import models
 from django.contrib.auth.models import AbstractUser
+from django.db.models.signals import post_save
+from django.dispatch import receiver
+from .shared_tasks import *
 
 
 # Create your models here.
@@ -68,3 +72,56 @@ class playlists_listens_window(models.Model):
 class TransactionWindow(models.Model):
     listen_id = models.AutoField(primary_key=True)
     playlist_id = models.ForeignKey(Playlist, on_delete=models.CASCADE)
+
+
+class FrequentlyWeightedPlaylist(models.Model):
+    fwp_id = models.AutoField(primary_key=True)
+    wn_node = models.CharField(max_length=1000000)
+    weight = models.FloatField()
+
+
+class SongWeight(models.Model):
+    song_id = models.ForeignKey(Song, on_delete=models.CASCADE)
+    weight = models.IntegerField()
+
+
+class Runtimes(models.Model):
+    runtime_id = models.AutoField(primary_key=True)
+    runtime_name = models.CharField(max_length=100)
+    runtime = models.FloatField()
+    timestamp = models.DateTimeField(auto_now_add=True)
+
+
+# @receiver(post_save, sender=FrequentlyWeightedPlaylist)
+# def update_fwp(sender, instance, created, **kwargs):
+#     if created:
+#         return
+#     # instance.wn_node.save()
+#     print("FrequentlyWeightedPlaylist updated")
+#     delay_test()
+#     # instance.save()
+
+
+# @receiver(post_save, sender=User)
+# def update_artist(sender, instance, created, **kwargs):
+#     print("User created")
+#     test_save_playlist.delay()
+@receiver(post_save, sender=LikedSongs)
+def update_song_weight(sender, instance, created, **kwargs):
+    try:
+        SongWeight.objects.get(song_id=instance.song_id).weight += 1
+    except SongWeight.DoesNotExist:
+        SongWeight(song_id=instance.song_id, weight=1).save()
+
+
+@receiver(post_save, sender=TransactionWindow)
+def update_transaction_window(sender, instance, created, **kwargs):
+    print("TransactionWindow updated")
+    if TransactionWindow.objects.count() == int(os.environ.get("WINDOW_SIZE")):
+        print("Window size initially reached")
+        construct_tree_and_mine_fwp.delay()
+
+    if TransactionWindow.objects.count() > int(os.environ.get("WINDOW_SIZE")):
+        print("Window size exceeded")
+        maintain_tree_and_mine_fwp.delay()
+        # Update the tree

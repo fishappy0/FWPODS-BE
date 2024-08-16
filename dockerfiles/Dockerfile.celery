@@ -1,0 +1,10 @@
+FROM python:3.9.19
+WORKDIR /usr/src/app
+
+COPY . .
+
+COPY ./certs /usr/local/share/ca-certificates
+
+RUN apt-get update && apt-get install libgl1 -y
+RUN pip install --upgrade pip setuptools wheel
+RUN pip install -r ./backend/requirements.txt
