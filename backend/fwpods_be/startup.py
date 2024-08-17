@@ -25,6 +25,10 @@ def scan_songs(Song, Artist, Album, path_to_item):
         album_folders_smb_path = conn.listPath(
             "win-games-and-misc", f"/{root_path}/{artist}"
         )
+
+        if Album.objects.filter(artist=artist).exists():
+            continue
+
         artist_obj = Artist(artist_name=artist)
         artist_obj.save()
         for album_path_smb in album_folders_smb_path[2:]:
@@ -67,6 +71,8 @@ def scan_songs(Song, Artist, Album, path_to_item):
                     continue
                 song_name = song_path.split("-")[2].split(".")[0]
                 song_id = int(album_id + song_path.split("-")[0].replace(" ", ""))
+                if Song.objects.filter(song_id=song_id).exists():
+                    continue
                 song = Song(
                     song_id=song_id,
                     artist_id=artist_obj,

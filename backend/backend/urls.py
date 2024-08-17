@@ -32,6 +32,7 @@ urlpatterns = [
     path("get_song", fwpods_be.views.GetSong.as_view()),
     path("get_all_user_playlists", fwpods_be.views.GetAllUserPlaylists.as_view()),
     path("get_song_info", fwpods_be.views.GetSongInfo.as_view()),
+    path("get_song_info_multiple", fwpods_be.views.GetSongInfoMultiple.as_view()),
     path("get_playlist_songs", fwpods_be.views.GetPlaylistSongs.as_view()),
     path("get_user_playlists", fwpods_be.views.GetUserPlaylists.as_view()),
     path("create_playlist", fwpods_be.views.CreatePlaylist.as_view()),
@@ -44,4 +45,5 @@ urlpatterns = [
     path("like_song_multiple", fwpods_be.views.LikeSongMultiple.as_view()),
     path("run_likes_update", fwpods_be.views.RunLikesUpdate.as_view()),
     path("clear_runtimes", fwpods_be.views.ClearRuntimes.as_view()),
+    path("get_runtimes_and_type", fwpods_be.views.GetRuntimesAndType.as_view()),
 ]

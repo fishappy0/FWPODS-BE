@@ -6,7 +6,7 @@ from django.http import JsonResponse
 from smb.SMBConnection import SMBConnection
 from io import BytesIO
 from os import environ
-from .models import Runtimes, User
+from .models import Album, Artist, Runtimes, User
 from .models import path_to_item
 from .models import Song
 from .models import Playlist
@@ -190,8 +190,8 @@ class GetSongInfo(APIView):
         song = Song.objects.filter(song_id=song_id).first()
         if song is None:
             return JsonResponse({"error": "Song not found"}, status=400)
-        artist = song.artist
-        album = song.album
+        artist = Artist.objects.filter(artist_id=song.artist_id).first().artist_name
+        album = Album.objects.filter(album_id=song.album_id).first().album_name
         return JsonResponse(
             {
                 "song_id": song.song_id,
@@ -308,17 +308,55 @@ class GetSongInfo(APIView):
         song = Song.objects.filter(song_id=song_id).first()
         if song is None:
             return JsonResponse({"error": "Song not found"}, status=400)
-        artist = song.artist
-        album = song.album
+        artist = Artist.objects.filter(artist_id=song.artist_id).first().artist_name
+        album = Album.objects.filter(album_id=song.album_id).first().album_name
         return JsonResponse(
             {
                 "song_id": song.song_id,
                 "song_name": song.song_name,
-                "artist": artist.artist_name,
-                "album": album.album_name,
+                "artist": artist,
+                "album": album,
             },
             status=200,
         )
+
+
+class GetSongInfoMultiple(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        song_ids = req.data["song_ids"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        if song_ids is None:
+            return JsonResponse({"error": "No song_ids provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+
+        song_info = []
+        for song_id in song_ids:
+            song = Song.objects.filter(song_id=song_id).first()
+            if song is None:
+                return JsonResponse({"error": "Song not found"}, status=400)
+            artist = Artist.objects.filter(artist_id=song.artist_id).first().artist_name
+            album = Album.objects.filter(album_id=song.album_id).first().album_name
+            song_info.append(
+                {
+                    "song_id": song.song_id,
+                    "song_name": song.song_name,
+                    "artist": artist,
+                    "album": album,
+                }
+            )
+        return JsonResponse({"songs": song_info}, status=200)
 
 
 class GetPlaylistSongs(APIView):
@@ -644,7 +682,7 @@ class ClearRuntimes(APIView):
         return JsonResponse({"message": "Runtimes cleared"}, status=200)
 
 
-class getRuntimesType(APIView):
+class GetRuntimesAndType(APIView):
     def post(self, req):
         token = req.data["Authorization"]
         if token is None:
@@ -659,7 +697,7 @@ class getRuntimesType(APIView):
         user = User.objects.filter(user_id=user_id).first()
         if user is None:
             return JsonResponse({"error": "User not found"}, status=400)
-        runtimes = Runtimes.objects.filter(user_id=user)
+        runtimes = Runtimes.objects.all()
         return JsonResponse(
             {
                 "Time": [runtime.runtime for runtime in runtimes],
