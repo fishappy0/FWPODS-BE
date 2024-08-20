@@ -5,7 +5,7 @@ from django.http import HttpResponse
 from django.http import JsonResponse
 from smb.SMBConnection import SMBConnection
 from io import BytesIO
-from os import environ
+from os import environ, path
 from .models import Album, Artist, Runtimes, User
 from .models import path_to_item
 from .models import Song
@@ -23,6 +23,7 @@ from rest_framework.parsers import MultiPartParser
 from rest_framework.response import Response
 from django.db.models.aggregates import Count
 from random import randint
+from mutagen.flac import FLAC, Picture
 
 import cv2
 import json, jwt, datetime
@@ -681,3 +682,66 @@ class GetRuntimesAndType(APIView):
             },
             status=200,
         )
+
+
+class GetSongLike(APIView):
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        song_id = req.data["song_id"]
+        if song_id is None:
+            return JsonResponse({"error": "No song_id provided"}, status=400)
+        song = Song.objects.filter(song_id=song_id).first()
+        like = LikedSongs.objects.filter(user_id=user, song_id=song).first()
+        if like is None:
+            return JsonResponse({"like": False}, status=200)
+        return JsonResponse({"like": True}, status=200)
+
+
+class GetSongCover(APIView):
+    def post(self, req):
+
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        song_id = req.data["song_id"]
+        if song_id is None:
+            return JsonResponse({"error": "No song_id provided"}, status=400)
+        file_obj = BytesIO()
+        path = path_to_item.objects.filter(song_id=song_id).first()
+        if path is None:
+            return JsonResponse({"error": "Song not found"}, status=400)
+        conn = SMBConnection(
+            environ["smb_username"],
+            environ["smb_password"],
+            environ["smb_client_machine_name"],
+            environ["smb_remote_name"],
+            use_ntlm_v2=True,
+        )
+        conn.connect(environ["smb_ip"], 139)
+        conn.retrieveFile(environ["smb_share_device"], path.path, file_obj)
+        image = FLAC(fileobj=BytesIO(file_obj.getvalue())).pictures
+        for pic in image:
+            if pic.type == 3:
+                return HttpResponse(pic.data, content_type="image/jpeg")

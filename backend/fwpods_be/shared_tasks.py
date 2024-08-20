@@ -186,7 +186,7 @@ def maintain_tree_and_mine_fwp():
     if fwp.fwps:
         for pattern in fwp.fwps:
             res_pattern = ""
-            weight = pattern[1].weight
+            weight = pattern[1][0].weight
             for item in pattern[0]:
                 res_pattern += str(item) + ","
             FrequentlyWeightedPlaylist(wn_node=res_pattern, weight=weight).save()
