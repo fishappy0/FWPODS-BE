@@ -197,12 +197,14 @@ class GetSongInfo(APIView):
             .artist_name
         )
         album = Album.objects.filter(album_id=song.album_id.album_id).first().album_name
+        liked = LikedSongs.objects.filter(user_id=user, song_id=song).first()
         return JsonResponse(
             {
                 "song_id": song.song_id,
                 "song_name": song.song_name,
                 "artist": artist,
                 "album": album,
+                "liked": True if liked is not None else False,
             },
             status=200,
         )
@@ -554,6 +556,33 @@ class LikeSong(APIView):
             return JsonResponse({"error": "Song not found"}, status=400)
         LikedSongs(user_id=user, song_id=song).save()
         return JsonResponse({"song_id": song_id}, status=201)
+
+
+class DislikeSong(APIView):
+    [JSONParser, FormParser]
+
+    def post(self, req):
+        token = req.data["Authorization"]
+        if token is None:
+            return JsonResponse({"error": "No token provided"}, status=400)
+        try:
+            payload = jwt.decode(token, "random salt here idk", algorithms=["HS256"])
+        except jwt.ExpiredSignatureError:
+            return JsonResponse({"error": "Token has expired"}, status=400)
+        except jwt.InvalidTokenError:
+            return JsonResponse({"error": "Invalid token"}, status=400)
+        user_id = payload["user_id"]
+        user = User.objects.filter(user_id=user_id).first()
+        if user is None:
+            return JsonResponse({"error": "User not found"}, status=400)
+        song_id = req.data["song_id"]
+        if song_id is None:
+            return JsonResponse({"error": "No song_id provided"}, status=400)
+        song = Song.objects.filter(song_id=song_id).first()
+        if song is None:
+            return JsonResponse({"error": "Song not found"}, status=400)
+        LikedSongs.objects.filter(user_id=user, song_id=song).delete()
+        return JsonResponse({"song_id": song_id}, status=200)
 
 
 class LikeSongMultiple(APIView):
